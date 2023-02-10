@@ -41,6 +41,13 @@ func (this *Xdbase) Get(key string) (interface{}, bool) {
 	val, ok := this.Data[key]
 	return val, ok
 }
+func (this *Xdbase) Del(key string) bool {
+	this.Lock.Lock()
+	defer this.Lock.Unlock()
+	delete(this.Data, key)
+	this.setChan()
+	return true
+}
 func (this *Xdbase) setChan() {
 	select {
 	case this.Chan <- time.Now():

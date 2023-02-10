@@ -14,6 +14,7 @@ func main() {
 		xdb.Insert(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
 	}
 	d, e := xdb.Find("key0")
+	xdb.Del("key01")
 	fmt.Println(d, e, time.Now().Sub(st))
 	time.Sleep(5 * time.Second)
 }

@@ -21,6 +21,9 @@ func Find(key string) (interface{}, bool) {
 	val, ok := Xdb.Get(key)
 	return val, ok
 }
+func Del(key string) bool {
+	return Xdb.Del(key)
+}
 func Save() bool {
 	return Xdb.Save()
 }
