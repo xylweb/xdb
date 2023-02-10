@@ -1,16 +1,19 @@
 package xdb
 
 import (
-	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var (
-	cnum    = 100
-	subffix = ".dat"
+	cnum       = 100
+	subffix    = ".dat"
+	subffixtmp = ".tmp"
 )
 
 type Dbase map[string]interface{}
@@ -80,12 +83,16 @@ func (this *Xdbase) run() {
 }
 func (this *Xdbase) toFile() bool {
 	this.Lock.Lock()
-	data, err := json.Marshal(this.Data)
+	data, err := msgpack.Marshal(this.Data)
 	this.Lock.Unlock()
 	if err != nil {
 		return false
 	}
-	err = ioutil.WriteFile(this.Path, data, 0777)
+	err = ioutil.WriteFile(this.Path+subffixtmp, data, 0777)
+	if err != nil {
+		return false
+	}
+	err = os.Rename(this.Path+subffixtmp, this.Path)
 	if err != nil {
 		return false
 	}
@@ -97,7 +104,7 @@ func (this *Xdbase) fromFile() bool {
 		return false
 	}
 	dbase := make(Dbase)
-	err = json.Unmarshal(data, &dbase)
+	err = msgpack.Unmarshal(data, &dbase)
 	if err != nil {
 		return false
 	}

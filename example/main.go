@@ -10,11 +10,11 @@ import (
 func main() {
 	xdb.Init(xdb.Config{DbPath: "./", DbName: "base"})
 	st := time.Now()
-	for i := 0; i <= 1; i++ {
+	for i := 0; i <= 100000; i++ {
 		xdb.Insert(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
 	}
-	d, e := xdb.Find("key0")
+	d, e := xdb.Find("key100000")
 	xdb.Del("key01")
 	fmt.Println(d, e, time.Now().Sub(st))
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 }
