@@ -3,7 +3,8 @@ package main
 import (
 	"fmt"
 	"time"
-	"xdb"
+
+	"github.com/xylweb/xdb"
 )
 
 func main() {
