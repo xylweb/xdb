@@ -11,7 +11,7 @@ type Config struct {
 
 func Init(c Config) {
 	Xdb = NewXdb(c.DbPath, c.DbName)
-	Xdb.Init()
+	Xdb.Open()
 }
 func Insert(key string, val interface{}) bool {
 	Xdb.Add(key, val)

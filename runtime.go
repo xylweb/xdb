@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	cnum       = 100
-	subffix    = ".dat"
+	Cnum       = 100
+	subffix    = ".xdb"
 	subffixtmp = ".tmp"
 )
 
@@ -25,9 +25,9 @@ type Xdbase struct {
 }
 
 func NewXdb(path, dname string) *Xdbase {
-	return &Xdbase{Path: filepath.Join(path, dname+subffix), Data: make(map[string]interface{}), Chan: make(chan time.Time, cnum), Lock: sync.RWMutex{}}
+	return &Xdbase{Path: filepath.Join(path, dname+subffix), Data: make(map[string]interface{}), Chan: make(chan time.Time, Cnum), Lock: sync.RWMutex{}}
 }
-func (this *Xdbase) Init() {
+func (this *Xdbase) Open() {
 	this.fromFile()
 	this.run()
 }
@@ -61,16 +61,20 @@ func (this *Xdbase) run() {
 	go func(this *Xdbase) {
 		now := time.Now()
 		savetime := time.Now()
-		savebool := false
+		var savebool bool
 		for {
 			select {
 			case tm := <-this.Chan:
 				savetime = time.Now()
-				savebool = true
+				if !savebool {
+					savebool = true
+				}
 				if tm.Unix() > now.Unix() {
 					this.toFile()
 					now = tm
-					savebool = false
+					if savebool {
+						savebool = false
+					}
 				}
 			default:
 				if time.Now().Unix() > savetime.Unix() && savebool {
