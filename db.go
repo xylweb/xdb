@@ -7,10 +7,11 @@ var (
 type Config struct {
 	DbPath string
 	DbName string
+	Index  bool
 }
 
 func Init(c Config) {
-	Xdb = NewXdb(c.DbPath, c.DbName)
+	Xdb = NewXdb(c.DbPath, c.DbName, c.Index)
 	Xdb.Open()
 }
 func Insert(key string, val interface{}) bool {
@@ -23,6 +24,9 @@ func Find(key string) (interface{}, bool) {
 }
 func Del(key string) bool {
 	return Xdb.Del(key)
+}
+func OrderKey(order string, limit int) []string {
+	return Xdb.OrderKey(order, limit)
 }
 func Save() bool {
 	return Xdb.Save()
