@@ -29,7 +29,13 @@ type Xdbase struct {
 }
 
 func NewXdb(path, dname string, index bool) *Xdbase {
-	return &Xdbase{Path: filepath.Join(path, dname), IsIndex: index, Data: make(map[string]interface{}), Chan: make(chan time.Time, Cnum), Lock: sync.RWMutex{}}
+	return &Xdbase{
+		Path:    filepath.Join(path, dname),
+		IsIndex: index,
+		Data:    make(map[string]interface{}),
+		Chan:    make(chan time.Time, Cnum),
+		Lock:    sync.RWMutex{},
+	}
 }
 func (this *Xdbase) Open() {
 	this.fromIFile()
