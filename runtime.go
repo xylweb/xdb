@@ -17,52 +17,66 @@ var (
 	interval     float64 = 2
 )
 
-type Ibase []string
-type Dbase map[string]interface{}
-type Xdbase struct {
+type Config struct {
+	DbPath  string
+	DbName  string
+	IsIndex bool
+}
+type DType interface {
+	~int | ~int32 | ~int64 | ~uint | ~uint32 | ~uint64 | ~float32 | ~float64 | ~string
+}
+
+type Ibase[T DType] []T
+type Dbase[T DType] map[T]any
+type Xdbase[T DType] struct {
+	DPath   string
 	Path    string
 	IsIndex bool
-	IData   Ibase
-	Data    Dbase
+	IData   Ibase[T]
+	Data    Dbase[T]
 	Chan    chan time.Time
 	Lock    sync.RWMutex
 }
 
-func NewXdb(path, dname string, index bool) *Xdbase {
-	os.MkdirAll(path, 0777)
-	return &Xdbase{
-		Path:    filepath.Join(path, dname),
-		IsIndex: index,
-		Data:    make(map[string]interface{}),
-		Chan:    make(chan time.Time, 10),
-		Lock:    sync.RWMutex{},
-	}
+func NewXdb[T DType]() *Xdbase[T] {
+	return new(Xdbase[T])
 }
-func (this *Xdbase) Open() {
+func (this *Xdbase[T]) SetParams(conf Config) *Xdbase[T] {
+	this.DPath = conf.DbPath
+	this.Path = filepath.Join(conf.DbPath, conf.DbName)
+	this.IsIndex = conf.IsIndex
+	this.Data = make(Dbase[T])
+	this.Chan = make(chan time.Time, 10)
+	this.Lock = sync.RWMutex{}
+	return this
+}
+func (this *Xdbase[T]) Open() *Xdbase[T] {
+	os.MkdirAll(this.DPath, 0777)
 	this.fromIFile()
 	this.fromDFile()
 	this.run()
+	return this
 }
 
 //index path
-func (this *Xdbase) getIdataPath() string {
+func (this *Xdbase[T]) getIdataPath() string {
 	return this.Path + subffixindex
 }
 
 //data path
-func (this *Xdbase) getPath() string {
+func (this *Xdbase[T]) getPath() string {
 	return this.Path
 }
-func (this *Xdbase) getDataPath() string {
+func (this *Xdbase[T]) getDataPath() string {
 	return this.Path + subffix
 }
-func (this *Xdbase) getITmpPath() string {
+func (this *Xdbase[T]) getITmpPath() string {
 	return this.Path + subffixindex + subffixtmp
 }
-func (this *Xdbase) getDTmpPath() string {
+func (this *Xdbase[T]) getDTmpPath() string {
 	return this.Path + subffix + subffixtmp
 }
-func (this *Xdbase) sort(key string) {
+func (this *Xdbase[T]) sort(key T) {
 	if !this.IsIndex {
 		return
 	}
@@ -72,24 +86,16 @@ func (this *Xdbase) sort(key string) {
 	}
 	min := this.IData[0]
 	max := this.IData[len(this.IData)-1]
-	if len(key) < len(max) {
-		var tmp = []string{key}
+	if key <= min {
+		var tmp = []T{key}
 		tmp = append(tmp, this.IData...)
 		this.IData = tmp
 	}
-	if len(key) == len(min) && key < min {
-		var tmp = []string{key}
-		tmp = append(tmp, this.IData...)
-		this.IData = tmp
-	}
-	if len(key) == len(max) && key > max {
-		this.IData = append(this.IData, key)
-	}
-	if len(key) > len(max) {
+	if key >= max {
 		this.IData = append(this.IData, key)
 	}
 }
-func (this *Xdbase) Add(key string, val interface{}) bool {
+func (this *Xdbase[T]) Add(key T, val any) bool {
 	this.Lock.Lock()
 	defer this.Lock.Unlock()
 	if _, ok := this.Data[key]; !ok {
@@ -99,23 +105,23 @@ func (this *Xdbase) Add(key string, val interface{}) bool {
 	this.setChan()
 	return true
 }
-func (this *Xdbase) Get(key string) (interface{}, bool) {
+func (this *Xdbase[T]) Get(key T) (any, bool) {
 	this.Lock.Lock()
 	defer this.Lock.Unlock()
 	val, ok := this.Data[key]
 	return val, ok
 }
-func (this *Xdbase) Del(key string) bool {
+func (this *Xdbase[T]) Del(key T) bool {
 	this.Lock.Lock()
 	defer this.Lock.Unlock()
 	delete(this.Data, key)
 	this.setChan()
 	return true
 }
-func (this *Xdbase) Count() int {
+func (this *Xdbase[T]) Count() int {
 	return len(this.Data)
 }
-func (this *Xdbase) OrderKey(order string, limit int) []string {
+func (this *Xdbase[T]) OrderKey(order string, limit int) []T {
 	if len(this.IData) <= limit {
 		return this.IData
 	}
@@ -127,7 +133,7 @@ func (this *Xdbase) OrderKey(order string, limit int) []string {
 	}
 	return nil
 }
-func (this *Xdbase) setChan() {
+func (this *Xdbase[T]) setChan() {
 	if len(this.Chan) > 0 {
 		return
 	}
@@ -136,8 +142,8 @@ func (this *Xdbase) setChan() {
 	default:
 	}
 }
-func (this *Xdbase) run() {
-	go func(this *Xdbase) {
+func (this *Xdbase[T]) run() {
+	go func(this *Xdbase[T]) {
 		times := time.Now()
 		for {
 			select {
@@ -158,12 +164,12 @@ func (this *Xdbase) run() {
 		}
 	}(this)
 }
-func (this *Xdbase) ClearCh() {
+func (this *Xdbase[T]) ClearCh() {
 	for i := 0; i <= len(this.Chan); i++ {
 		<-this.Chan
 	}
 }
-func (this *Xdbase) toFile(path, tmppath string, d interface{}) bool {
+func (this *Xdbase[T]) toFile(path, tmppath string, d any) bool {
 	this.Lock.Lock()
 	data, err := msgpack.Marshal(d)
 	this.Lock.Unlock()
@@ -180,12 +186,12 @@ func (this *Xdbase) toFile(path, tmppath string, d interface{}) bool {
 	}
 	return true
 }
-func (this *Xdbase) fromIFile() bool {
+func (this *Xdbase[T]) fromIFile() bool {
 	data, err := ioutil.ReadFile(this.getIdataPath())
 	if err != nil {
 		return false
 	}
-	ibase := make(Ibase, 0)
+	ibase := make(Ibase[T], 0)
 	err = msgpack.Unmarshal(data, &ibase)
 	if err != nil {
 		return false
@@ -194,12 +200,12 @@ func (this *Xdbase) fromIFile() bool {
 	return true
 }
 
-func (this *Xdbase) fromDFile() bool {
+func (this *Xdbase[T]) fromDFile() bool {
 	data, err := ioutil.ReadFile(this.getDataPath())
 	if err != nil {
 		return false
 	}
-	dbase := make(Dbase, 0)
+	dbase := make(Dbase[T], 0)
 	err = msgpack.Unmarshal(data, &dbase)
 	if err != nil {
 		return false
@@ -208,7 +214,7 @@ func (this *Xdbase) fromDFile() bool {
 	return true
 }
 
-func (this *Xdbase) Save() bool {
+func (this *Xdbase[T]) Save() bool {
 	return this.toFile(this.getIdataPath(), this.getITmpPath(), this.IData) &&
 		this.toFile(this.getDataPath(), this.getDTmpPath(), this.Data)
 }
