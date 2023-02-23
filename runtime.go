@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	Cnum         = 100
-	subffix      = ".xdb"
-	subffixindex = ".idb"
-	subffixtmp   = ".tmp"
+	subffix      string  = ".xdb"
+	subffixindex string  = ".idb"
+	subffixtmp   string  = ".tmp"
+	interval     float64 = 2
 )
 
 type Ibase []string
@@ -29,11 +29,12 @@ type Xdbase struct {
 }
 
 func NewXdb(path, dname string, index bool) *Xdbase {
+	os.MkdirAll(path, 0777)
 	return &Xdbase{
 		Path:    filepath.Join(path, dname),
 		IsIndex: index,
 		Data:    make(map[string]interface{}),
-		Chan:    make(chan time.Time, Cnum),
+		Chan:    make(chan time.Time, 10),
 		Lock:    sync.RWMutex{},
 	}
 }
@@ -49,6 +50,9 @@ func (this *Xdbase) getIdataPath() string {
 }
 
 //data path
+func (this *Xdbase) getPath() string {
+	return this.Path
+}
 func (this *Xdbase) getDataPath() string {
 	return this.Path + subffix
 }
@@ -124,6 +128,9 @@ func (this *Xdbase) OrderKey(order string, limit int) []string {
 	return nil
 }
 func (this *Xdbase) setChan() {
+	if len(this.Chan) > 0 {
+		return
+	}
 	select {
 	case this.Chan <- time.Now():
 	default:
@@ -131,41 +138,30 @@ func (this *Xdbase) setChan() {
 }
 func (this *Xdbase) run() {
 	go func(this *Xdbase) {
-		now := time.Now()
-		savetime := time.Now()
-		var savebool bool
+		times := time.Now()
 		for {
 			select {
-			case tm := <-this.Chan:
-				savetime = time.Now()
-				if !savebool {
-					savebool = true
-				}
-				if tm.Unix() > now.Unix() {
+			case times = <-this.Chan:
+				if time.Now().Sub(times).Seconds() > interval {
 					if len(this.IData) > 0 {
 						this.toFile(this.getIdataPath(), this.getITmpPath(), this.IData)
 					}
 					if len(this.Data) > 0 {
 						this.toFile(this.getDataPath(), this.getDTmpPath(), this.Data)
 					}
-					now = tm
-					if savebool {
-						savebool = false
-					}
+					this.ClearCh()
+				} else {
+					this.Chan <- times
 				}
 			default:
-				if time.Now().Unix() > savetime.Unix() && savebool {
-					if len(this.IData) > 0 {
-						this.toFile(this.getIdataPath(), this.getITmpPath(), this.IData)
-					}
-					if len(this.Data) > 0 {
-						this.toFile(this.getDataPath(), this.getDTmpPath(), this.Data)
-					}
-					savebool = false
-				}
 			}
 		}
 	}(this)
+}
+func (this *Xdbase) ClearCh() {
+	for i := 0; i <= len(this.Chan); i++ {
+		<-this.Chan
+	}
 }
 func (this *Xdbase) toFile(path, tmppath string, d interface{}) bool {
 	this.Lock.Lock()
