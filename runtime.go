@@ -21,6 +21,7 @@ type Config struct {
 	DbPath  string
 	DbName  string
 	IsIndex bool
+	Pass    string
 }
 type DType interface {
 	~int | ~int32 | ~int64 | ~uint | ~uint32 | ~uint64 | ~float32 | ~float64 | ~string
@@ -29,6 +30,7 @@ type DType interface {
 type Ibase[T DType] []T
 type Dbase[T DType] map[T]any
 type Xdbase[T DType] struct {
+	Pass    string
 	DPath   string
 	Path    string
 	IsIndex bool
@@ -42,6 +44,7 @@ func NewXdb[T DType]() *Xdbase[T] {
 	return new(Xdbase[T])
 }
 func (this *Xdbase[T]) SetParams(conf Config) *Xdbase[T] {
+	this.Pass = conf.Pass
 	this.DPath = conf.DbPath
 	this.Path = filepath.Join(conf.DbPath, conf.DbName)
 	this.IsIndex = conf.IsIndex
@@ -172,6 +175,12 @@ func (this *Xdbase[T]) ClearCh() {
 func (this *Xdbase[T]) toFile(path, tmppath string, d any) bool {
 	this.Lock.Lock()
 	data, err := msgpack.Marshal(d)
+	if this.Pass != "" {
+		c := Crypt{}
+		c.SetParams(this.Pass)
+		c.CPass(256)
+		data = c.Encode(data)
+	}
 	this.Lock.Unlock()
 	if err != nil {
 		return false
@@ -191,6 +200,12 @@ func (this *Xdbase[T]) fromIFile() bool {
 	if err != nil {
 		return false
 	}
+	if this.Pass != "" {
+		c := Crypt{}
+		c.SetParams(this.Pass)
+		c.CPass(256)
+		data = c.Decode(data)
+	}
 	ibase := make(Ibase[T], 0)
 	err = msgpack.Unmarshal(data, &ibase)
 	if err != nil {
@@ -204,6 +219,12 @@ func (this *Xdbase[T]) fromDFile() bool {
 	data, err := ioutil.ReadFile(this.getDataPath())
 	if err != nil {
 		return false
+	}
+	if this.Pass != "" {
+		c := Crypt{}
+		c.SetParams(this.Pass)
+		c.CPass(256)
+		data = c.Decode(data)
 	}
 	dbase := make(Dbase[T], 0)
 	err = msgpack.Unmarshal(data, &dbase)
