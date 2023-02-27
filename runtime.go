@@ -203,7 +203,7 @@ func (this *Xdbase[T]) fromIFile() bool {
 	if this.Pass != "" {
 		c := Crypt{}
 		c.SetParams(this.Pass)
-		c.CPass(256)
+		c.CPass(bytesize)
 		data = c.Decode(data)
 	}
 	ibase := make(Ibase[T], 0)
@@ -223,7 +223,7 @@ func (this *Xdbase[T]) fromDFile() bool {
 	if this.Pass != "" {
 		c := Crypt{}
 		c.SetParams(this.Pass)
-		c.CPass(256)
+		c.CPass(bytesize)
 		data = c.Decode(data)
 	}
 	dbase := make(Dbase[T], 0)
