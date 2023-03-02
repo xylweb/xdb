@@ -118,8 +118,26 @@ func (this *Xdbase[T]) Del(key T) bool {
 	this.Lock.Lock()
 	defer this.Lock.Unlock()
 	delete(this.Data, key)
+	this.DelIndex(0, len(this.IData), key)
 	this.setChan()
 	return true
+}
+func (this *Xdbase[T]) DelIndex(left, right int, d T) {
+	if left > right {
+		return
+	}
+	mid := (left + right) / 2
+	if this.IData[mid] > d {
+		this.DelIndex(left, mid-1, d)
+	} else if d > this.IData[mid] {
+		this.DelIndex(mid+1, right, d)
+	} else {
+		tmp := make([]T, len(this.IData)-1)
+		copy(tmp[:mid], this.IData[:mid])
+		copy(tmp[mid:], this.IData[mid+1:])
+		this.IData = tmp
+		return
+	}
 }
 func (this *Xdbase[T]) Count() int {
 	return len(this.Data)
