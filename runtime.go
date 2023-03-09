@@ -120,7 +120,9 @@ func (this *Xdbase[T]) Del(key T) bool {
 	this.Lock.Lock()
 	defer this.Lock.Unlock()
 	delete(this.Data, key)
-	this.DelIndex(0, len(this.IData), key)
+	if len(this.IData) > 0 {
+		this.DelIndex(0, len(this.IData), key)
+	}
 	this.setChan()
 	return true
 }
