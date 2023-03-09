@@ -30,14 +30,15 @@ type DType interface {
 type Ibase[T DType] []T
 type Dbase[T DType] map[T]any
 type Xdbase[T DType] struct {
-	Pass    string
-	DPath   string
-	Path    string
-	IsIndex bool
-	IData   Ibase[T]
-	Data    Dbase[T]
-	Chan    chan time.Time
-	Lock    sync.RWMutex
+	Pass      string
+	DPath     string
+	Path      string
+	IsIndex   bool
+	IData     Ibase[T]
+	Data      Dbase[T]
+	Chan      chan time.Time
+	Lock      sync.RWMutex
+	CloseChan chan bool
 }
 
 func NewXdb[T DType]() *Xdbase[T] {
@@ -50,6 +51,7 @@ func (this *Xdbase[T]) SetParams(conf Config) *Xdbase[T] {
 	this.IsIndex = conf.IsIndex
 	this.Data = make(Dbase[T])
 	this.Chan = make(chan time.Time, 10)
+	this.CloseChan = make(chan bool)
 	this.Lock = sync.RWMutex{}
 	return this
 }
@@ -178,7 +180,13 @@ func (this *Xdbase[T]) run() {
 					}
 					this.ClearCh()
 				} else {
-					this.Chan <- times
+					time.AfterFunc(time.Second, func() {
+						this.Chan <- times
+					})
+				}
+			case cls := <-this.CloseChan:
+				if cls {
+					return
 				}
 			default:
 			}
@@ -256,4 +264,9 @@ func (this *Xdbase[T]) fromDFile() bool {
 func (this *Xdbase[T]) Save() bool {
 	return this.toFile(this.getIdataPath(), this.getITmpPath(), this.IData) &&
 		this.toFile(this.getDataPath(), this.getDTmpPath(), this.Data)
+}
+
+func (this *Xdbase[T]) Close() bool {
+	this.CloseChan <- true
+	return true
 }

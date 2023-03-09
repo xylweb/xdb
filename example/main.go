@@ -15,7 +15,7 @@ func main() {
 		db.Add(i, fmt.Sprintf("value%d", i))
 	}
 	d, e := db.Get(1000000)
-	db.Del(1)
+	db.Del(999998)
 	keys := db.OrderKey("desc", 5)
 	fmt.Println(keys)
 	for _, v := range keys {
