@@ -190,7 +190,6 @@ func (this *Xdbase[T]) run() {
 				if cls {
 					return
 				}
-			default:
 			}
 		}
 	}(this)
