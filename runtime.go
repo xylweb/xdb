@@ -137,6 +137,25 @@ func (this *Xdbase[T]) Range(f func(k T, v any) bool) {
 		}
 	}
 }
+func (this *Xdbase[T]) RangeIndex(order string, limit int, f func(k T, v any) bool) {
+	var d Ibase[T]
+	if len(this.iData) <= limit {
+		d = this.iData
+	} else if order == "asc" {
+		d = this.iData[:limit]
+	} else { //desc
+		d = this.iData[len(this.iData)-limit:]
+	}
+	for _, vk := range d {
+		v, ok := this.data[vk]
+		if ok {
+			rs := f(vk, v)
+			if !rs {
+				return
+			}
+		}
+	}
+}
 func (this *Xdbase[T]) delIndex(left, right int, d T) {
 	if left > right {
 		return

@@ -26,6 +26,10 @@ func main() {
 		fmt.Println(k, v)
 		return false
 	})
+	db.RangeIndex("desc", 10, func(k int, v any) bool {
+		fmt.Println(k, v)
+		return false
+	})
 	fmt.Println(d, e, time.Now().Sub(st))
 	time.Sleep(10 * time.Second)
 }
