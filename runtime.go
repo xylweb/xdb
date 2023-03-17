@@ -34,10 +34,10 @@ type Xdbase[T DType] struct {
 	DPath     string
 	Path      string
 	IsIndex   bool
-	IData     Ibase[T]
-	Data      Dbase[T]
+	iData     Ibase[T]
+	data      Dbase[T]
 	Chan      chan time.Time
-	Lock      sync.RWMutex
+	lock      sync.RWMutex
 	CloseChan chan bool
 }
 
@@ -49,10 +49,10 @@ func (this *Xdbase[T]) SetParams(conf Config) *Xdbase[T] {
 	this.DPath = conf.DbPath
 	this.Path = filepath.Join(conf.DbPath, conf.DbName)
 	this.IsIndex = conf.IsIndex
-	this.Data = make(Dbase[T])
+	this.data = make(Dbase[T])
 	this.Chan = make(chan time.Time, 10)
 	this.CloseChan = make(chan bool)
-	this.Lock = sync.RWMutex{}
+	this.lock = sync.RWMutex{}
 	return this
 }
 func (this *Xdbase[T]) Open() *Xdbase[T] {
@@ -85,76 +85,84 @@ func (this *Xdbase[T]) sort(key T) {
 	if !this.IsIndex {
 		return
 	}
-	if len(this.IData) == 0 {
-		this.IData = append(this.IData, key)
+	if len(this.iData) == 0 {
+		this.iData = append(this.iData, key)
 		return
 	}
-	min := this.IData[0]
-	max := this.IData[len(this.IData)-1]
+	min := this.iData[0]
+	max := this.iData[len(this.iData)-1]
 	if key <= min {
 		var tmp = []T{key}
-		tmp = append(tmp, this.IData...)
-		this.IData = tmp
+		tmp = append(tmp, this.iData...)
+		this.iData = tmp
 	}
 	if key >= max {
-		this.IData = append(this.IData, key)
+		this.iData = append(this.iData, key)
 	}
 }
 func (this *Xdbase[T]) Add(key T, val any) bool {
-	this.Lock.Lock()
-	defer this.Lock.Unlock()
-	if _, ok := this.Data[key]; !ok {
+	this.lock.Lock()
+	defer this.lock.Unlock()
+	if _, ok := this.data[key]; !ok {
 		this.sort(key)
 	}
-	this.Data[key] = val
+	this.data[key] = val
 	this.setChan()
 	return true
 }
 func (this *Xdbase[T]) Get(key T) (any, bool) {
-	this.Lock.Lock()
-	defer this.Lock.Unlock()
-	val, ok := this.Data[key]
+	this.lock.Lock()
+	defer this.lock.Unlock()
+	val, ok := this.data[key]
 	return val, ok
 }
 func (this *Xdbase[T]) Del(key T) bool {
-	this.Lock.Lock()
-	defer this.Lock.Unlock()
-	delete(this.Data, key)
-	if len(this.IData) > 0 {
-		this.DelIndex(0, len(this.IData), key)
+	this.lock.Lock()
+	defer this.lock.Unlock()
+	delete(this.data, key)
+	if len(this.iData) > 0 {
+		this.delIndex(0, len(this.iData), key)
 	}
 	this.setChan()
 	return true
 }
-func (this *Xdbase[T]) DelIndex(left, right int, d T) {
+func (this *Xdbase[T]) Count() int {
+	return len(this.data)
+}
+func (this *Xdbase[T]) Range(f func(k T, v any) bool) {
+	for k, v := range this.data {
+		rs := f(k, v)
+		if !rs {
+			return
+		}
+	}
+}
+func (this *Xdbase[T]) delIndex(left, right int, d T) {
 	if left > right {
 		return
 	}
 	mid := (left + right) / 2
-	if this.IData[mid] > d {
-		this.DelIndex(left, mid-1, d)
-	} else if d > this.IData[mid] {
-		this.DelIndex(mid+1, right, d)
+	if this.iData[mid] > d {
+		this.delIndex(left, mid-1, d)
+	} else if d > this.iData[mid] {
+		this.delIndex(mid+1, right, d)
 	} else {
-		tmp := make([]T, len(this.IData)-1)
-		copy(tmp[:mid], this.IData[:mid])
-		copy(tmp[mid:], this.IData[mid+1:])
-		this.IData = tmp
+		tmp := make([]T, len(this.iData)-1)
+		copy(tmp[:mid], this.iData[:mid])
+		copy(tmp[mid:], this.iData[mid+1:])
+		this.iData = tmp
 		return
 	}
 }
-func (this *Xdbase[T]) Count() int {
-	return len(this.Data)
-}
 func (this *Xdbase[T]) OrderKey(order string, limit int) []T {
-	if len(this.IData) <= limit {
-		return this.IData
+	if len(this.iData) <= limit {
+		return this.iData
 	}
 	switch order {
 	case "asc":
-		return this.IData[:limit]
+		return this.iData[:limit]
 	case "desc":
-		return this.IData[len(this.IData)-limit:]
+		return this.iData[len(this.iData)-limit:]
 	}
 	return nil
 }
@@ -174,11 +182,11 @@ func (this *Xdbase[T]) run() {
 			select {
 			case times = <-this.Chan:
 				if time.Now().Sub(times).Seconds() > interval {
-					if len(this.IData) > 0 {
-						this.toFile(this.getIdataPath(), this.getITmpPath(), this.IData)
+					if len(this.iData) > 0 {
+						this.toFile(this.getIdataPath(), this.getITmpPath(), this.iData)
 					}
-					if len(this.Data) > 0 {
-						this.toFile(this.getDataPath(), this.getDTmpPath(), this.Data)
+					if len(this.data) > 0 {
+						this.toFile(this.getDataPath(), this.getDTmpPath(), this.data)
 					}
 					this.ClearCh()
 				} else {
@@ -200,7 +208,7 @@ func (this *Xdbase[T]) ClearCh() {
 	}
 }
 func (this *Xdbase[T]) toFile(path, tmppath string, d any) bool {
-	this.Lock.Lock()
+	this.lock.Lock()
 	data, err := msgpack.Marshal(d)
 	if this.Pass != "" {
 		c := Crypt{}
@@ -208,7 +216,7 @@ func (this *Xdbase[T]) toFile(path, tmppath string, d any) bool {
 		c.CPass(256)
 		data = c.Encode(data)
 	}
-	this.Lock.Unlock()
+	this.lock.Unlock()
 	if err != nil {
 		return false
 	}
@@ -238,7 +246,7 @@ func (this *Xdbase[T]) fromIFile() bool {
 	if err != nil {
 		return false
 	}
-	this.IData = ibase
+	this.iData = ibase
 	return true
 }
 
@@ -258,13 +266,13 @@ func (this *Xdbase[T]) fromDFile() bool {
 	if err != nil {
 		return false
 	}
-	this.Data = dbase
+	this.data = dbase
 	return true
 }
 
 func (this *Xdbase[T]) Save() bool {
-	return this.toFile(this.getIdataPath(), this.getITmpPath(), this.IData) &&
-		this.toFile(this.getDataPath(), this.getDTmpPath(), this.Data)
+	return this.toFile(this.getIdataPath(), this.getITmpPath(), this.iData) &&
+		this.toFile(this.getDataPath(), this.getDTmpPath(), this.data)
 }
 
 func (this *Xdbase[T]) Close() bool {
