@@ -207,7 +207,7 @@ func (this *Xdbase[T]) run() {
 					if len(this.data) > 0 {
 						this.toFile(this.getDataPath(), this.getDTmpPath(), this.data)
 					}
-					this.ClearCh()
+					this.clearCh()
 				} else {
 					time.AfterFunc(time.Second, func() {
 						this.Chan <- times
@@ -221,7 +221,7 @@ func (this *Xdbase[T]) run() {
 		}
 	}(this)
 }
-func (this *Xdbase[T]) ClearCh() {
+func (this *Xdbase[T]) clearCh() {
 	for i := 0; i <= len(this.Chan); i++ {
 		<-this.Chan
 	}
