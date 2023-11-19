@@ -63,12 +63,12 @@ func (this *Xdbase[T]) Open() *Xdbase[T] {
 	return this
 }
 
-//index path
+// index path
 func (this *Xdbase[T]) getIdataPath() string {
 	return this.Path + subffixindex
 }
 
-//data path
+// data path
 func (this *Xdbase[T]) getPath() string {
 	return this.Path
 }
@@ -201,13 +201,16 @@ func (this *Xdbase[T]) run() {
 			select {
 			case times = <-this.Chan:
 				if time.Now().Sub(times).Seconds() > interval {
+					var bi, bd bool
 					if len(this.iData) > 0 {
-						this.toFile(this.getIdataPath(), this.getITmpPath(), this.iData)
+						bi = this.toFile(this.getIdataPath(), this.getITmpPath(), this.iData)
 					}
 					if len(this.data) > 0 {
-						this.toFile(this.getDataPath(), this.getDTmpPath(), this.data)
+						bd = this.toFile(this.getDataPath(), this.getDTmpPath(), this.data)
 					}
-					this.clearCh()
+					if bi && bd {
+						this.clearCh()
+					}
 				} else {
 					time.AfterFunc(time.Second, func() {
 						this.Chan <- times
