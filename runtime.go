@@ -62,6 +62,10 @@ func (this *Xdbase[T]) Open() *Xdbase[T] {
 	this.run()
 	return this
 }
+func (this *Xdbase[T]) Refresh() {
+	this.fromIFile()
+	this.fromDFile()
+}
 
 // index path
 func (this *Xdbase[T]) getIdataPath() string {
@@ -69,9 +73,10 @@ func (this *Xdbase[T]) getIdataPath() string {
 }
 
 // data path
-func (this *Xdbase[T]) getPath() string {
-	return this.Path
-}
+//
+//	func (this *Xdbase[T]) getPath() string {
+//		return this.Path
+//	}
 func (this *Xdbase[T]) getDataPath() string {
 	return this.Path + subffix
 }
@@ -200,7 +205,7 @@ func (this *Xdbase[T]) run() {
 		for {
 			select {
 			case times = <-this.Chan:
-				if time.Now().Sub(times).Seconds() > interval {
+				if time.Since(times).Seconds() > interval {
 					var bi, bd bool
 					if len(this.iData) > 0 {
 						bi = this.toFile(this.getIdataPath(), this.getITmpPath(), this.iData)
@@ -253,7 +258,7 @@ func (this *Xdbase[T]) toFile(path, tmppath string, d any) bool {
 	return true
 }
 func (this *Xdbase[T]) fromIFile() bool {
-	data, err := ioutil.ReadFile(this.getIdataPath())
+	data, err := os.ReadFile(this.getIdataPath())
 	if err != nil {
 		return false
 	}
@@ -273,7 +278,7 @@ func (this *Xdbase[T]) fromIFile() bool {
 }
 
 func (this *Xdbase[T]) fromDFile() bool {
-	data, err := ioutil.ReadFile(this.getDataPath())
+	data, err := os.ReadFile(this.getDataPath())
 	if err != nil {
 		return false
 	}
