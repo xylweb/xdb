@@ -1,7 +1,6 @@
 package xdb
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -247,15 +246,12 @@ func (this *Xdbase[T]) toFile(path, tmppath string, d any) bool {
 	if err != nil {
 		return false
 	}
-	err = ioutil.WriteFile(path, data, 0777)
+	err = os.WriteFile(path, data, 0777)
 	if err != nil {
 		return false
 	}
 	err = os.Rename(tmppath, path)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 func (this *Xdbase[T]) fromIFile() bool {
 	data, err := os.ReadFile(this.getIdataPath())
