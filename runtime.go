@@ -1,6 +1,7 @@
 package xdb
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -29,15 +30,16 @@ type DType interface {
 type Ibase[T DType] []T
 type Dbase[T DType] map[T]any
 type Xdbase[T DType] struct {
-	Pass      string
-	DPath     string
-	Path      string
-	IsIndex   bool
-	iData     Ibase[T]
-	data      Dbase[T]
-	Chan      chan time.Time
-	lock      sync.RWMutex
-	CloseChan chan bool
+	Pass           string
+	DPath          string
+	Path           string
+	IsIndex        bool
+	iData          Ibase[T]
+	data           Dbase[T]
+	Chan           chan time.Time
+	lock           sync.RWMutex
+	CloseChan      chan bool
+	LastModifyTime time.Time
 }
 
 func NewXdb[T DType]() *Xdbase[T] {
@@ -61,9 +63,21 @@ func (this *Xdbase[T]) Open() *Xdbase[T] {
 	this.run()
 	return this
 }
-func (this *Xdbase[T]) Refresh() {
-	this.fromIFile()
-	this.fromDFile()
+func (this *Xdbase[T]) Refresh() error {
+	fileInfo, err := os.Stat(this.getDataPath())
+	if err == nil {
+		modifiedTime := fileInfo.ModTime()
+		if this.LastModifyTime.Sub(modifiedTime).Seconds() < 0 {
+			this.fromIFile()
+			b := this.fromDFile()
+			if b {
+				this.LastModifyTime = modifiedTime
+			}
+			return nil
+		}
+		return errors.New("no modify")
+	}
+	return err
 }
 
 // index path

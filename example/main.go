@@ -31,5 +31,8 @@ func main() {
 		return false
 	})
 	fmt.Println(d, e, time.Now().Sub(st))
+	for i := 0; i < 20; i++ {
+		fmt.Println(db.Refresh())
+	}
 	time.Sleep(10 * time.Second)
 }
